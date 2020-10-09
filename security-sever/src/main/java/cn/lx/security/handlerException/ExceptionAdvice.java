@@ -13,9 +13,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ExceptionAdvice {
 
-    //403异常就跳转到这个页面
+    //403异常
     @ExceptionHandler(AccessDeniedException.class)
     public String handleAccessDeniedException(){
         return "403异常,权限不足";
+    }
+
+    //运行时异常
+    @ExceptionHandler(RuntimeException.class)
+    public String handleRuntimeException(){
+        return "运行时异常";
     }
 }

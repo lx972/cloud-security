@@ -1,15 +1,20 @@
 package cn.lx.security.config;
 
+import cn.lx.security.filter.AuthenticationFilter;
+import cn.lx.security.filter.TokenVerifyFilter;
 import cn.lx.security.service.IUserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
 /**
  * cn.lx.security.config
@@ -19,7 +24,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
  */
 @Configuration
 @EnableWebSecurity
-@EnableGlobalMethodSecurity(prePostEnabled = true)
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
@@ -27,6 +31,19 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
     private BCryptPasswordEncoder bCryptPasswordEncoder;
+
+    /**
+     * 只有这个配置类有AuthenticationManager对象，我们要把这个类中的这个对象放入容器中
+     * 这样在别的地方就可以自动注入了
+     * @return
+     * @throws Exception
+     */
+    @Bean
+    @Override
+    public AuthenticationManager authenticationManager() throws Exception {
+        AuthenticationManager authenticationManager = super.authenticationManagerBean();
+        return authenticationManager;
+    }
 
     /**
      * Used by the default implementation of {@link #authenticationManager()} to attempt
@@ -92,7 +109,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         web.ignoring().antMatchers("/css/**",
                 "/img/**",
                 "/plugins/**",
-                "favicon.ico",
+                "/favicon.ico",
                 "/loginPage");
     }
 
@@ -111,10 +128,22 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.csrf().disable()
+                .httpBasic()
+                .and()
                 .authorizeRequests()
-                //.antMatchers("/css/**", "/img/**", "/plugins/**").permitAll()
                 .anyRequest().authenticated()
                 .and()
+                /**
+                 * 不要将自定义过滤器加component注解，而是在这里直接创建一个过滤器对象加入到过滤器链中，并传入authenticationManager
+                 * 启动后，过滤器链中会同时出现自定义过滤器和他的父类，他会自动覆盖，并不会过滤两次
+                 *
+                 * 使用component注解会产生很多问题：
+                 * 1. web.ignoring()会失效，上面的资源还是会经过自定义的过滤器
+                 * 2.过滤器链中出现的是他们父类中的名字
+                 * 3.登录的时候（访问/login），一直使用匿名访问，不会去数据库中查询
+                 */
+                .addFilterAt(new AuthenticationFilter(super.authenticationManager()), UsernamePasswordAuthenticationFilter.class)
+                .addFilterAt(new TokenVerifyFilter(super.authenticationManager()), BasicAuthenticationFilter.class)
                 //.formLogin().loginPage("/login.jsp").loginProcessingUrl("/login").defaultSuccessUrl("/index.jsp").failureForwardUrl("/failer.jsp").permitAll()
                 .formLogin().loginPage("/loginPage").loginProcessingUrl("/login").permitAll()
                 .and()

@@ -12,4 +12,11 @@
     <artifactId>security-resource1</artifactId>
 
 
+    <dependencies>
+        <dependency>
+            <groupId>cn.lx.security</groupId>
+            <artifactId>security-common</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
 </project>
